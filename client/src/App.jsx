@@ -1,29 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Shield, Video, VideoOff, AlertTriangle, Plus, LogIn, X, Wifi, WifiOff, Eye, UserPlus, LogOut, Trash2, CheckCircle } from 'lucide-react';
+import { supabase } from './supabaseClient';
+import Auth from './Auth';
 
 // --- Main Application Component ---
 export default function App() {
     const [appView, setAppView] = useState('dashboard');
-    const [authToken, setAuthToken] = useState(localStorage.getItem('authToken'));
-    const [currentUser, setCurrentUser] = useState(null);
+    const [session, setSession] = useState(null);
 
     useEffect(() => {
-        const user = localStorage.getItem('currentUser');
-        if (user) {
-            setCurrentUser(JSON.parse(user));
-        }
-    }, [authToken]);
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+        });
 
-    const handleLogout = () => {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        setAuthToken(null);
-        setCurrentUser(null);
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
     };
 
-    if (!authToken) {
-        return <AuthRouter setAuthToken={setAuthToken} setCurrentUser={setCurrentUser} />;
+    if (!session) {
+        return <Auth />;
     }
+
+    const currentUser = { username: session.user.email?.split('@')[0] || 'User' };
 
     return (
         <div className="bg-gray-900 text-white min-h-screen font-sans">
@@ -34,94 +41,14 @@ export default function App() {
                 setAppView={setAppView}
             />
             <main className="p-4 md:p-8">
-                {appView === 'dashboard' && <Dashboard />}
-                {appView === 'cameras' && <CameraManagement />}
+                {appView === 'dashboard' && <Dashboard session={session} />}
+                {appView === 'cameras' && <CameraManagement session={session} />}
             </main>
         </div>
     );
 }
 
-// --- Auth Components ---
-const AuthRouter = ({ setAuthToken, setCurrentUser }) => {
-    const [authView, setAuthView] = useState('login');
-    if (authView === 'register') {
-        return <RegisterPage setAuthView={setAuthView} />;
-    }
-    return <LoginPage setAuthView={setAuthView} setAuthToken={setAuthToken} setCurrentUser={setCurrentUser} />;
-};
 
-const LoginPage = ({ setAuthView, setAuthToken, setCurrentUser }) => {
-    const [formData, setFormData] = useState({ username: '', password: '' });
-    const [error, setError] = useState('');
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        try {
-            const response = await fetch('http://localhost:3001/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Login failed');
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
-            setAuthToken(data.token);
-            setCurrentUser(data.user);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-teal-500/20">
-                <div className="text-center mb-8"><Shield className="mx-auto h-16 w-16 text-teal-400" /><h1 className="text-3xl font-bold mt-4">Security Dashboard Login</h1></div>
-                <form onSubmit={handleSubmit}>
-                    {error && <p className="text-red-400 text-center mb-4">{error}</p>}
-                    <input name="username" type="text" value={formData.username} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Username" required />
-                    <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-6 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Password" required />
-                    <button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"><LogIn size={20} />Sign In</button>
-                </form>
-                <p className="text-center text-gray-400 mt-6">Don't have an account? <button onClick={() => setAuthView('register')} className="font-bold text-teal-400 hover:underline">Register here</button></p>
-            </div>
-        </div>
-    );
-};
-
-const RegisterPage = ({ setAuthView }) => {
-    const [formData, setFormData] = useState({ username: '', password: '', email: '', phone_number: '' });
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-        try {
-            const response = await fetch('http://localhost:3001/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Registration failed');
-            setSuccess('Registration successful! Redirecting to login...');
-            setTimeout(() => setAuthView('login'), 2000);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-    return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-            <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-teal-500/20">
-                <div className="text-center mb-8"><UserPlus className="mx-auto h-16 w-16 text-teal-400" /><h1 className="text-3xl font-bold mt-4">Create Account</h1></div>
-                <form onSubmit={handleSubmit}>
-                    {error && <p className="text-red-400 text-center mb-4">{error}</p>}
-                    {success && <p className="text-green-400 text-center mb-4">{success}</p>}
-                    <input name="username" value={formData.username} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Username" required />
-                    <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Password" required />
-                    <input name="email" type="email" value={formData.email} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Email Address" required />
-                    <input name="phone_number" type="tel" value={formData.phone_number} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-6 text-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="Phone Number (e.g., +91...)" required />
-                    <button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">Register</button>
-                </form>
-                <p className="text-center text-gray-400 mt-6">Already have an account? <button onClick={() => setAuthView('login')} className="font-bold text-teal-400 hover:underline">Login here</button></p>
-            </div>
-        </div>
-    );
-};
 
 // --- Main App Components ---
 const Header = ({ currentUser, onLogout, appView, setAppView }) => {
@@ -142,16 +69,17 @@ const Header = ({ currentUser, onLogout, appView, setAppView }) => {
     );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ session }) => {
     const [stats, setStats] = useState({ totalCameras: 0, activeCameras: 0, offlineCameras: 0, activeAlerts: 0 });
     const [activeAlerts, setActiveAlerts] = useState([]);
     const [resolvedAlerts, setResolvedAlerts] = useState([]);
 
     const fetchData = useCallback(() => {
+        const headers = { 'Authorization': `Bearer ${session?.access_token}` };
         Promise.all([
-            fetch('http://localhost:3001/api/cameras'),
-            fetch('http://localhost:3001/api/alerts'),
-            fetch('http://localhost:3001/api/alerts/resolved')
+            fetch('http://localhost:3001/api/cameras', { headers }),
+            fetch('http://localhost:3001/api/alerts', { headers }),
+            fetch('http://localhost:3001/api/alerts/resolved', { headers })
         ]).then(async ([camerasRes, activeAlertsRes, resolvedAlertsRes]) => {
             const cameras = await camerasRes.json();
             const active = await activeAlertsRes.json();
@@ -162,43 +90,54 @@ const Dashboard = () => {
             setActiveAlerts(active);
             setResolvedAlerts(resolved);
         }).catch(err => console.error("Failed to fetch dashboard data:", err));
-    }, []);
+    }, [session]);
 
     useEffect(() => {
         fetchData();
-        const ws = new WebSocket('ws://localhost:3001');
-        ws.onopen = () => console.log('WebSocket connected');
-        ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            if (message.type === 'DATA_CHANGED') {
-                fetchData();
-            }
+
+        // Subscribe to real-time changes
+        const channel = supabase
+            .channel('schema-db-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'cameras' },
+                () => fetchData()
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'alerts' },
+                () => fetchData()
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
         };
-        ws.onclose = () => console.log('WebSocket disconnected');
-        return () => ws.close();
     }, [fetchData]);
 
     return (
         <>
             <StatsGrid stats={stats} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <AlertsPanel alerts={activeAlerts} onAlertResolved={fetchData} />
+                <AlertsPanel alerts={activeAlerts} onAlertResolved={fetchData} session={session} />
                 <AlertHistoryPanel alerts={resolvedAlerts} />
             </div>
         </>
     );
 };
 
-const CameraManagement = () => {
+const CameraManagement = ({ session }) => {
     const [cameras, setCameras] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const headers = { 'Authorization': `Bearer ${session?.access_token}` };
+
     const fetchCameras = useCallback(async () => {
         try {
             setIsLoading(true);
-            const response = await fetch('http://localhost:3001/api/cameras');
+            const response = await fetch('http://localhost:3001/api/cameras', { headers });
             if (!response.ok) throw new Error('Network error');
             const data = await response.json();
             setCameras(data);
@@ -208,7 +147,7 @@ const CameraManagement = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [session]);
 
     useEffect(() => {
         fetchCameras();
@@ -216,7 +155,11 @@ const CameraManagement = () => {
 
     const handleAddCamera = async (cameraData) => {
         try {
-            const response = await fetch('http://localhost:3001/api/cameras', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cameraData) });
+            const response = await fetch('http://localhost:3001/api/cameras', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', ...headers }, 
+                body: JSON.stringify(cameraData) 
+            });
             if (!response.ok) throw new Error('Failed to add camera');
             fetchCameras();
             setIsModalOpen(false);
@@ -228,8 +171,12 @@ const CameraManagement = () => {
     const handleDeleteCamera = async (id) => {
         if (window.confirm("Are you sure you want to delete this camera?")) {
             try {
-                const response = await fetch(`http://localhost:3001/api/cameras/${id}`, { method: 'DELETE' });
+                const response = await fetch(`http://localhost:3001/api/cameras/${id}`, { 
+                    method: 'DELETE',
+                    headers
+                });
                 if (!response.ok) throw new Error('Failed to delete camera');
+                fetchCameras(); // Re-fetch explicitly
             } catch (err) {
                 alert(err.message);
             }

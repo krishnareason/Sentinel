@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Camera {
+  id              Int      @id @default(autoincrement())
+  name            String
+  stream_url      String
+  access_password String?
+  status          String   @default("offline")
+  last_heartbeat  DateTime @default(now())
+  created_at      DateTime @default(now())
+  
+  alerts          Alert[]
+
+  @@map("cameras")
+}
+
+model Alert {
+  id                Int       @id @default(autoincrement())
+  camera_id         Int
+  is_resolved       Boolean   @default(false)
+  offline_at        DateTime  @default(now())
+  resolved_at       DateTime?
+  resolution_reason String?
+  
+  camera            Camera    @relation(fields: [camera_id], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+model Profile {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  phone_number String?
+  created_at   DateTime @default(now())
+
+  @@map("profiles")
+}
