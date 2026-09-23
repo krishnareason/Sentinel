@@ -1,6 +1,6 @@
 # Sentinel: Real-Time Camera Monitoring Dashboard
 
-A full-stack, real-time camera monitoring dashboard with automated offline detection, SMS/email alerts, and secure video feeds. Built with React (Vite), Node.js, Prisma, and PostgreSQL (Supabase).
+Sentinel is a full-stack, real-time security camera monitoring platform engineered for enterprise facilities. It features automated offline camera detection, instant SMS/email alerting mechanisms, and secure, authenticated video feeds. Built on a modern stack utilizing React (Vite), Node.js, Prisma, and PostgreSQL (Supabase), Sentinel ensures high-reliability monitoring and rapid incident response.
 
 This project was engineered to solve the real-world problem of managing multiple security feeds in large facilities like power plants or corporate campuses, where manually checking each camera's status is inefficient and unreliable.
 
