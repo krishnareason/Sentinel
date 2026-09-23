@@ -1,6 +1,6 @@
 # Sentinel: Real-Time Camera Monitoring Dashboard
 
-Sentinel is a full-stack, enterprise-grade web application designed for real-time monitoring of security camera statuses. It provides a centralized, modern dashboard for security personnel to track which cameras are online or offline, manage camera fleets, and receive instant, automated notifications for status changes.
+A full-stack, real-time camera monitoring dashboard with automated offline detection, SMS/email alerts, and secure video feeds. Built with React (Vite), Node.js, Prisma, and PostgreSQL (Supabase).
 
 This project was engineered to solve the real-world problem of managing multiple security feeds in large facilities like power plants or corporate campuses, where manually checking each camera's status is inefficient and unreliable.
 
